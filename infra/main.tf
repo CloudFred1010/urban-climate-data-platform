@@ -2,9 +2,12 @@ provider "aws" {
   region = var.aws_region
 }
 
-# S3 bucket for raw data
+# Fetch AWS account ID for unique resource naming
+data "aws_caller_identity" "current" {}
+
+# S3 bucket for raw data (uniqueness ensured by account ID suffix)
 resource "aws_s3_bucket" "raw_data" {
-  bucket        = "urban-climate-raw"
+  bucket        = "urban-climate-raw-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
 
   tags = {
@@ -13,12 +16,11 @@ resource "aws_s3_bucket" "raw_data" {
   }
 }
 
-# Fetch the default VPC
+# Fetch default VPC and subnets
 data "aws_vpc" "default" {
   default = true
 }
 
-# Fetch all subnets from the default VPC
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
@@ -26,14 +28,14 @@ data "aws_subnets" "default" {
   }
 }
 
-# Redshift Subnet Group (using default subnets)
+# Redshift Subnet Group
 resource "aws_redshift_subnet_group" "main" {
   name        = "urban-climate-redshift-subnet"
   description = "Subnet group for Redshift cluster"
   subnet_ids  = data.aws_subnets.default.ids
 }
 
-# IAM role for Redshift to access S3
+# IAM Role for Redshift
 resource "aws_iam_role" "redshift_role" {
   name = "urban-climate-redshift-role"
 
@@ -51,28 +53,69 @@ resource "aws_iam_role" "redshift_role" {
   })
 }
 
-# Attach AmazonS3ReadOnlyAccess policy to IAM role
+# Restrict to read access on the raw data bucket only
+resource "aws_iam_policy" "redshift_s3_policy" {
+  name        = "urban-climate-redshift-s3-policy"
+  description = "Allow Redshift read access to raw data bucket"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:ListBucket"]
+        Resource = [
+          aws_s3_bucket.raw_data.arn,
+          "${aws_s3_bucket.raw_data.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "redshift_s3_access" {
   role       = aws_iam_role.redshift_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+  policy_arn = aws_iam_policy.redshift_s3_policy.arn
+}
+
+# Secrets Manager – Redshift Admin Password
+resource "aws_secretsmanager_secret" "redshift_password" {
+  name = "redshift-admin-password"
+
+  tags = {
+    Project = "Urban Climate Data Platform"
+    Purpose = "Store Redshift Admin Password"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "redshift_password_value" {
+  secret_id     = aws_secretsmanager_secret.redshift_password.id
+  secret_string = jsonencode({ password = var.redshift_password })
 }
 
 # Redshift Cluster
 resource "aws_redshift_cluster" "main" {
-  cluster_identifier         = "urban-climate-cluster"
-  node_type                  = var.redshift_node_type
-  number_of_nodes            = var.redshift_nodes
-  master_username            = var.redshift_username
-  master_password            = var.redshift_password
-  database_name              = "urbanclimate"             # ✅ Added explicit DB name
-  cluster_type               = "multi-node"
-  cluster_subnet_group_name  = aws_redshift_subnet_group.main.name
-  skip_final_snapshot        = true
-  publicly_accessible        = false
-  iam_roles                  = [aws_iam_role.redshift_role.arn] # ✅ Ensures IAM role is applied
+  cluster_identifier        = "urban-climate-cluster"
+  node_type                 = var.redshift_node_type
+  number_of_nodes           = var.redshift_nodes
+  master_username           = var.redshift_username
+  master_password           = var.redshift_password   # uses var, synced to Secrets Manager
+  database_name             = "urbanclimate"
+  cluster_type              = "multi-node"
+  cluster_subnet_group_name = aws_redshift_subnet_group.main.name
+  skip_final_snapshot       = true
+  publicly_accessible       = false
+  iam_roles                 = [aws_iam_role.redshift_role.arn]
 
   tags = {
     Project = "Urban Climate Data Platform"
     Purpose = "Analytics Warehouse"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      database_name,
+      master_password
+    ]
   }
 }
