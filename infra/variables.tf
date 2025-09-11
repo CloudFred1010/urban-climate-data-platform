@@ -14,7 +14,7 @@ variable "redshift_password" {
   description = "Master password for Redshift"
   type        = string
   sensitive   = true
-  default     = "ChangeMe123!" # For dev only – move to AWS Secrets Manager later
+
 }
 
 variable "redshift_node_type" {

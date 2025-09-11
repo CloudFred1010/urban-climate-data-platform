@@ -10,11 +10,11 @@ __pycache__/
 .terraform.lock.hcl
 crash.log
 
-# Env / secrets
+# Local secrets
 .env
 *.pem
+secrets.auto.tfvars
 
 # OS
 .DS_Store
 Thumbs.db
-
