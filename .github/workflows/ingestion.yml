@@ -53,7 +53,7 @@ jobs:
     needs: security-checks
     env:
       AWS_REGION: eu-west-2
-      S3_BUCKET_NAME: ${{ secrets.RAW_BUCKET }}
+      S3_BUCKET_NAME: ${{ secrets.RAW_BUCKET }}   # must be set in repo secrets!
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
