@@ -1,6 +1,9 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
 .venv/
 
 # Terraform
@@ -15,6 +18,20 @@ crash.log
 *.pem
 secrets.auto.tfvars
 
-# OS
+# Airflow (local state, DB, logs)
+airflow/
+*.db
+*.pid
+*.log
+
+# Data outputs (not source code)
+*.csv
+*.parquet
+*.gpkg
+*.osm.pbf
+
+# OS / Editor
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
