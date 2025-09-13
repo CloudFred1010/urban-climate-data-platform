@@ -22,7 +22,7 @@ RAW_BUCKET = os.getenv("RAW_BUCKET", "urban-climate-raw-235562991700")
 
 PROCESSED_PREFIX_WEATHER = "processed/weather/"
 PROCESSED_PREFIX_GEO = "processed/geospatial/cleaned/"
-CURATED_PREFIX = "curated"
+CURATED_PREFIX = "curated/uvi/"
 
 # ---------- Load Processed Data ----------
 print("Reading processed weather...")
@@ -39,11 +39,25 @@ df_weather_clean = (
     .withColumn("lon", col("coord.lon"))
 )
 
+# Flatten nested fields for Redshift
+df_weather_flat = (
+    df_weather_clean.withColumn("clouds_all", col("clouds.all"))
+    .withColumn("main_temp", col("main.temp"))
+    .withColumn("main_temp_min", col("main.temp_min"))
+    .withColumn("main_temp_max", col("main.temp_max"))
+    .withColumn("main_humidity", col("main.humidity"))
+    .withColumn("wind_speed", col("wind.speed"))
+    .withColumn("wind_deg", col("wind.deg"))
+    .withColumn("weather_main", col("weather").getItem(0).getField("main"))
+    .withColumn("weather_desc", col("weather").getItem(0).getField("description"))
+    .drop("coord", "clouds", "main", "wind", "weather", "sys")  # drop nested structs
+)
+
 # Geospatial: ensure lat/lon exist
 df_geo_clean = df_geo.dropna(subset=["lat", "lon"])
 
 # Round coordinates to ~0.01 for coarse join
-df_weather_clean = df_weather_clean.withColumn(
+df_weather_flat = df_weather_flat.withColumn(
     "lat_round", round(col("lat"), 2)
 ).withColumn("lon_round", round(col("lon"), 2))
 
@@ -52,7 +66,7 @@ df_geo_clean = df_geo_clean.withColumn("lat_round", round(col("lat"), 2)).withCo
 )
 
 # ---------- Join ----------
-df_joined = df_weather_clean.join(
+df_joined = df_weather_flat.join(
     df_geo_clean, on=["lat_round", "lon_round"], how="inner"
 )
 
@@ -63,11 +77,11 @@ print(f"Joined dataset count: {df_joined.count()} rows")
 df_uvi = (
     df_joined.groupBy("lat_round", "lon_round")
     .agg(count("*").alias("geo_density"))
-    .withColumn("UVI", col("geo_density") * lit(0.1))
+    .withColumn("uvi", col("geo_density") * lit(0.1))
 )
 
 # ---------- Write to Curated ----------
-out_path = f"s3a://{RAW_BUCKET}/{CURATED_PREFIX}/urban_vulnerability/"
+out_path = f"s3a://{RAW_BUCKET}/{CURATED_PREFIX}"
 df_uvi.write.mode("overwrite").parquet(out_path)
 
 print(f"Curated UVI dataset written to {out_path}")

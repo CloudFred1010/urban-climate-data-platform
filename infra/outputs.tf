@@ -21,6 +21,7 @@ output "s3_raw_prefixes" {
 output "redshift_endpoint" {
   description = "Endpoint of the Redshift cluster"
   value       = aws_redshift_cluster.main.endpoint
+  sensitive   = true
 }
 
 output "redshift_username" {

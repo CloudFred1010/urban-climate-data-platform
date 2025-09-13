@@ -31,12 +31,11 @@ resource "aws_s3_bucket" "raw_data" {
   }
 }
 
-# Create logical prefixes for ingestion (weather, demographics, geospatial)
 resource "aws_s3_object" "prefixes" {
   for_each = toset(["raw/weather/", "raw/demographics/", "raw/geospatial/"])
   bucket   = aws_s3_bucket.raw_data.id
   key      = each.value
-  content  = "" # marker object for folder visibility
+  content  = "" # marker object
 }
 
 # ===============================
@@ -97,7 +96,7 @@ resource "aws_secretsmanager_secret" "redshift_password" {
 
 resource "aws_secretsmanager_secret_version" "redshift_password_value" {
   secret_id     = aws_secretsmanager_secret.redshift_password.id
-  secret_string = jsonencode({ password = var.redshift_password })
+  secret_string = var.redshift_password
 }
 
 # ===============================
@@ -115,7 +114,7 @@ resource "aws_redshift_cluster" "main" {
   number_of_nodes           = var.redshift_nodes
   master_username           = var.redshift_username
   master_password           = var.redshift_password
-  database_name             = "urbanclimate" # valid only at creation
+  database_name             = "urbanclimate"
   cluster_type              = "multi-node"
   cluster_subnet_group_name = aws_redshift_subnet_group.main.name
   skip_final_snapshot       = true

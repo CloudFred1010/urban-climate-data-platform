@@ -61,20 +61,7 @@ These datasets are freely accessible, ensuring that anyone replicating this proj
 - CI/CD pipelines in GitHub Actions ensuring secure, tested, and repeatable deployments  
 - Monitoring dashboards and automated remediation using AWS CloudWatch and Lambda  
 - QGIS maps showing urban areas at greatest risk from climate factors combined with population exposure  
-- An optional SageMaker ML model that predicts vulnerability scores, demonstrating AI-readiness  
-
----
-
-## Why It Matters for a Senior Data Engineer Role
-This project is designed to test and showcase the full spectrum of skills required in a Senior Data Engineer role:
-
-- Data engineering: Designing and implementing ETL pipelines with Python, Pandas, and PySpark  
-- Orchestration: Building production workflows in Airflow  
-- Cloud engineering: Deploying and maintaining AWS data services (S3, EMR, Redshift, Lambda, Athena, SageMaker)  
-- CI/CD automation: Implementing GitHub Actions pipelines for testing, deployment, and security checks  
-- Data quality: Embedding validation and monitoring to ensure reliability  
-- Visualisation and analytics: Preparing data for QGIS and BI tools  
-- Scalability and security: Using Terraform for reproducible infrastructure, IAM for least-privilege access, and container scanning for compliance  
+- An optional SageMaker ML model that predicts vulnerability scores, demonstrating AI-readiness 
 
 ---
 
