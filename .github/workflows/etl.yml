@@ -23,6 +23,7 @@ jobs:
       AWS_ACCOUNT_ID: 235562991700
       ECR_REPO: urban-climate-etl
       IMAGE_TAG: latest
+      DAG_BUCKET: urban-climate-airflow-dags
 
     steps:
       - name: Checkout repo
@@ -61,10 +62,23 @@ jobs:
             $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
           docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
+      # --- Ensure Airflow DAG bucket exists ---
+      - name: Ensure Airflow DAG bucket exists
+        run: |
+          if aws s3 ls "s3://$DAG_BUCKET" 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "Bucket does not exist, creating..."
+            aws s3api create-bucket \
+              --bucket $DAG_BUCKET \
+              --region $AWS_REGION \
+              --create-bucket-configuration LocationConstraint=$AWS_REGION
+          else
+            echo "Bucket already exists, continuing..."
+          fi
+
       # --- Airflow DAG Deployment ---
       - name: Sync Airflow DAGs to S3
         run: |
-          aws s3 sync dags/ s3://urban-climate-airflow-dags/ \
+          aws s3 sync dags/ s3://$DAG_BUCKET/ \
             --delete --exact-timestamps
 
       # --- Trigger Staging Pipeline Run ---
