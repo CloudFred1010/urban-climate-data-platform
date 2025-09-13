@@ -23,7 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
           pip install -r etl/requirements.txt
-          pip install pytest sqlfluff trivy gitleaks
+          pip install pytest sqlfluff gitleaks
 
       # ---------- Code Quality ----------
       - name: Run PyTest
@@ -44,18 +44,6 @@ jobs:
       - name: Trivy Image Scan
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: "python:3.12-slim" # (placeholder until we build ETL image)
+          image-ref: "python:3.12-slim" # placeholder until ETL image is built
           format: "table"
-          exit-code: "0" # don't fail PR yet, just report
-
-      # ---------- Notifications ----------
-      - name: Notify Slack
-        if: always() # run even if previous steps fail
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "text": ":white_check_mark: CI job *${{ github.job }}* finished with status *${{ job.status }}* on branch `${{ github.ref_name }}`"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          exit-code: "0" # report only, don’t fail the PR
