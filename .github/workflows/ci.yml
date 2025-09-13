@@ -39,8 +39,8 @@ jobs:
       # ---------- Security ----------
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect --source . --no-banner --redact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trivy Image Scan
         uses: aquasecurity/trivy-action@0.20.0
