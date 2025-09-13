@@ -43,7 +43,13 @@ jobs:
               $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - name: Build Docker image
-        run: docker build -t $ECR_REPO:$IMAGE_TAG ./etl
+        run: |
+          if [ -f "./etl/Dockerfile" ]; then
+            docker build -t $ECR_REPO:$IMAGE_TAG ./etl
+          else
+            echo "❌ ERROR: Missing Dockerfile inside ./etl"
+            exit 1
+          fi
 
       - name: Tag & Push image to ECR
         run: |
@@ -60,5 +66,5 @@ jobs:
       # --- Trigger Staging Pipeline Run ---
       - name: Trigger DAG in Airflow
         run: |
-          echo "🔔 Placeholder: Trigger Airflow DAG here"
+          echo "Placeholder: Trigger Airflow DAG here"
           echo "airflow dags trigger urban_climate_pipeline --conf '{\"env\": \"staging\"}'"
