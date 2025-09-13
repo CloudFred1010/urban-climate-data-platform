@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
+import requests
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.utils.email import send_email
 from airflow.models import Variable
-import requests
 
 
 # -------------------------------------------------------------------------
@@ -24,20 +24,20 @@ def task_fail_alert(context):
     Logs: {log_url}
     """
 
-    # Email
+    # Email alert
     send_email(
-        to=["wilfr@example.com"],
+        to=[Variable.get("alert_email", default_var="wilfr@example.com")],
         subject=f"[Airflow] Task Failed: {dag_id}.{task_id}",
         html_content=message,
     )
 
-    # Slack (if webhook available in Variables)
+    # Slack alert (if webhook configured)
     slack_webhook = Variable.get("slack_webhook", default_var=None)
     if slack_webhook:
         try:
             requests.post(slack_webhook, json={"text": message})
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Slack notification failed: {e}")
 
 
 # -------------------------------------------------------------------------
@@ -47,9 +47,13 @@ def notify_success(**context):
     message = "Urban Climate ETL pipeline completed successfully."
     slack_webhook = Variable.get("slack_webhook", default_var=None)
     if slack_webhook:
-        requests.post(slack_webhook, json={"text": message})
+        try:
+            requests.post(slack_webhook, json={"text": message})
+        except Exception as e:
+            print(f"Slack notification failed: {e}")
+
     send_email(
-        to=["wilfr@example.com"],
+        to=[Variable.get("alert_email", default_var="wilfr@example.com")],
         subject="[Airflow] ETL Success",
         html_content=message,
     )
@@ -63,26 +67,29 @@ default_args = {
     "depends_on_past": False,
     "email_on_failure": True,
     "email_on_retry": False,
-    "email": ["wilfr@example.com"],
-    "retries": 1,
-    "retry_delay": timedelta(minutes=5),
+    "email": [Variable.get("alert_email", default_var="wilfr@example.com")],
+    "retries": 2,
+    "retry_delay": timedelta(minutes=10),
     "on_failure_callback": task_fail_alert,
 }
 
-# -------------------------------------------------------------------------
-# Airflow Variables
-# -------------------------------------------------------------------------
-REDSHIFT_CLUSTER = Variable.get("redshift_cluster")
-REDSHIFT_DB = Variable.get("redshift_db")
-REDSHIFT_USER = Variable.get("redshift_user")
-REDSHIFT_ROLE = Variable.get("redshift_role")  # IAM role with S3 read
-GLUE_CRAWLER = Variable.get("glue_crawler")
-CURATED_S3 = Variable.get(
-    "curated_s3"
-)  # e.g. s3://urban-climate-curated-235562991700/curated/uvi/
 
 # -------------------------------------------------------------------------
-# DAG
+# Airflow Variables (hooked to Terraform outputs)
+# -------------------------------------------------------------------------
+REDSHIFT_CLUSTER = Variable.get("redshift_cluster", default_var="urban-climate-cluster")
+REDSHIFT_DB = Variable.get("redshift_db", default_var="urbanclimate")
+REDSHIFT_USER = Variable.get("redshift_user", default_var="admin")
+REDSHIFT_ROLE = Variable.get("redshift_role")
+GLUE_CRAWLER = Variable.get("glue_crawler", default_var="urban-climate-crawler")
+CURATED_S3 = Variable.get(
+    "curated_s3",
+    default_var="s3://urban-climate-curated-123456789012/curated/uvi/",
+)
+
+
+# -------------------------------------------------------------------------
+# DAG Definition
 # -------------------------------------------------------------------------
 with DAG(
     dag_id="urban_climate_pipeline",
@@ -91,10 +98,11 @@ with DAG(
     schedule_interval="@daily",
     start_date=datetime(2025, 9, 12),
     catchup=False,
-    tags=["urban", "climate", "etl"],
+    max_active_runs=1,
+    tags=["urban", "climate", "etl", "redshift", "s3"],
 ) as dag:
 
-    # 1. Run ETL (Spark script)
+    # 1. Run ETL (Spark job on EMR or local test script)
     run_etl = BashOperator(
         task_id="run_etl",
         bash_command="python3 /home/wilfr/Project-Amini/urban-climate-data-platform/etl/run_etl.py",
@@ -135,12 +143,11 @@ with DAG(
         ),
     )
 
-    # 5. Notify success (Slack + Email)
+    # 5. Notify success
     notify = PythonOperator(
         task_id="notify",
         python_callable=notify_success,
-        provide_context=True,
     )
 
-    # DAG flow
+    # DAG Flow
     run_etl >> refresh_partitions >> load_redshift >> quality_check >> notify
