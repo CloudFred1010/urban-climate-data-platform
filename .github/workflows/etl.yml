@@ -45,9 +45,13 @@ jobs:
       - name: Build Docker image
         run: |
           if [ -f "./etl/Dockerfile" ]; then
+            echo "Building from ./etl/Dockerfile"
             docker build -t $ECR_REPO:$IMAGE_TAG ./etl
+          elif [ -f "./Dockerfile" ]; then
+            echo "Building from root ./Dockerfile"
+            docker build -t $ECR_REPO:$IMAGE_TAG .
           else
-            echo "❌ ERROR: Missing Dockerfile inside ./etl"
+            echo "ERROR: No Dockerfile found (expected ./etl/Dockerfile or ./Dockerfile)"
             exit 1
           fi
 
