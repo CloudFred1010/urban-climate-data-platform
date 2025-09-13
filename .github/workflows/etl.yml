@@ -1,0 +1,61 @@
+name: CD - ETL & Airflow Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "etl/**"
+      - "dags/**"
+      - "requirements*.txt"
+      - ".github/workflows/etl.yml"
+
+jobs:
+  etl-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write  # for AWS OIDC
+
+    env:
+      AWS_REGION: eu-west-2
+      ECR_REPO: urban-climate-etl
+      IMAGE_TAG: latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::235562991700:role/urban-climate-github-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      # --- Docker Build & Push ---
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin \
+              235562991700.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Build Docker image
+        run: docker build -t $ECR_REPO:$IMAGE_TAG ./etl
+
+      - name: Tag & Push image to ECR
+        run: |
+          docker tag $ECR_REPO:$IMAGE_TAG \
+            235562991700.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+          docker push 235562991700.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+
+      # --- Airflow DAG Deployment ---
+      - name: Sync Airflow DAGs to S3
+        run: |
+          aws s3 sync dags/ s3://urban-climate-airflow-dags/ \
+            --delete --exact-timestamps
+
+      # --- Trigger Staging Pipeline Run ---
+      - name: Trigger DAG in Airflow
+        run: |
+          airflow dags trigger urban_climate_pipeline --conf '{"env": "staging"}'

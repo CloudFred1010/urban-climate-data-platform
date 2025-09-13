@@ -1,3 +1,6 @@
+# ===============================
+# Variables
+# ===============================
 variable "aws_region" {
   description = "AWS region for all resources"
   type        = string
@@ -11,14 +14,13 @@ variable "redshift_username" {
 }
 
 variable "redshift_password" {
-  description = "Master password for Redshift"
+  description = "Master password for Redshift (stored in Secrets Manager)"
   type        = string
   sensitive   = true
-
 }
 
 variable "redshift_node_type" {
-  description = "Node type for Redshift cluster"
+  description = "Instance type for Redshift cluster nodes"
   type        = string
   default     = "ra3.large"
 }

@@ -1,15 +1,61 @@
 repos:
+  # -------------------------
+  # Python formatting & lint
+  # -------------------------
   - repo: https://github.com/psf/black
-    rev: 23.9.1
+    rev: 25.1.0
     hooks:
       - id: black
+        files: \.py$
 
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.1.0
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.13.0
     hooks:
-      - id: flake8
+      - id: ruff
+        args: [--fix]
+        files: \.py$
 
+  # -------------------------
+  # Secret scanning
+  # -------------------------
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.0
+    rev: v8.28.0
     hooks:
       - id: gitleaks
+        files: .
+
+  # -------------------------
+  # Terraform validation
+  # -------------------------
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.100.0
+    hooks:
+      - id: terraform_fmt
+        files: \.tf$
+      - id: terraform_validate
+        files: \.tf$
+
+  # -------------------------
+  # SQL linting (Redshift = Postgres dialect)
+  # -------------------------
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.4.2
+    hooks:
+      - id: sqlfluff-lint
+        files: \.sql$
+        args: [--dialect, postgres]
+      - id: sqlfluff-fix
+        files: \.sql$
+        args: [--dialect, postgres]
+
+  # -------------------------
+  # Airflow DAG validation
+  # -------------------------
+  - repo: local
+    hooks:
+      - id: airflow-dag-check
+        name: Validate Airflow DAGs
+        entry: python -m py_compile
+        language: system
+        types: [python]
+        files: ^dags/.*\.py$

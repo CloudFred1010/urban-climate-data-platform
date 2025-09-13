@@ -6,12 +6,22 @@ output "s3_bucket_name" {
   value       = aws_s3_bucket.raw_data.bucket
 }
 
+output "s3_raw_prefixes" {
+  description = "Standard prefixes for raw data organisation in S3"
+  value = {
+    weather      = "${aws_s3_bucket.raw_data.bucket}/raw/weather/"
+    demographics = "${aws_s3_bucket.raw_data.bucket}/raw/demographics/"
+    geospatial   = "${aws_s3_bucket.raw_data.bucket}/raw/geospatial/"
+  }
+}
+
 # ===============================
 # Redshift Outputs
 # ===============================
 output "redshift_endpoint" {
   description = "Endpoint of the Redshift cluster"
   value       = aws_redshift_cluster.main.endpoint
+  sensitive   = true
 }
 
 output "redshift_username" {
