@@ -61,7 +61,11 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform -chdir=infra plan \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="redshift_username=admin" \
             -var="redshift_password=${{ secrets.REDSHIFT_PASSWORD }}" \
+            -var="redshift_node_type=ra3.large" \
+            -var="redshift_nodes=2" \
             -input=false -out=tfplan
 
       # ----------------------------
@@ -73,3 +77,4 @@ jobs:
           terraform -chdir=infra apply \
             -auto-approve \
             -input=false tfplan
+
