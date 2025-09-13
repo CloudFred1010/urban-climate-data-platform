@@ -32,7 +32,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.5 # (pin a version for consistency)
+          terraform_version: 1.9.5 # pin a version for consistency
 
       - name: Terraform Init
         run: terraform -chdir=infra init -input=false -upgrade
@@ -41,8 +41,12 @@ jobs:
         run: terraform -chdir=infra validate
 
       - name: Terraform Plan
-        run: terraform -chdir=infra plan -input=false -out=tfplan
+        run: |
+          terraform -chdir=infra plan \
+            -var="redshift_password=${{ secrets.REDSHIFT_PASSWORD }}" \
+            -input=false -out=tfplan
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
-        run: terraform -chdir=infra apply -auto-approve -input=false tfplan
+        run: |
+          terraform -chdir=infra apply -auto-approve -input=false tfplan
