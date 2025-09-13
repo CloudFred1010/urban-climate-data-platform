@@ -13,6 +13,8 @@ jobs:
       # ---------- Setup ----------
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed so history is available if needed
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,16 +35,21 @@ jobs:
       - name: SQLFluff Lint
         run: sqlfluff lint etl/ --dialect redshift
 
-      - name: Run Ruff (lint & fix check)
+      - name: Run Ruff (lint-only)
         run: ruff check .
 
-      # ---------- Security ----------
-      - name: Run Gitleaks
+      # ---------- Security: Gitleaks ----------
+      - name: Run Gitleaks (full repo)
         run: |
-          curl -sSL https://github.com/zricethezav/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o gitleaks
+          # Download latest binary for Linux
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o gitleaks
           chmod +x gitleaks
+          # Run scan of entire repo, redact secrets in output
           ./gitleaks detect --source . --no-banner --redact --exit-code 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ---------- Security: Image scanning ----------
       - name: Trivy Image Scan
         uses: aquasecurity/trivy-action@0.20.0
         with:
