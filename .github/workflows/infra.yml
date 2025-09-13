@@ -5,23 +5,29 @@ on:
     branches:
       - main
     paths:
-      - "infra/**"   # only trigger when infra changes
+      - "infra/**"   # Only trigger when infrastructure code changes
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write   # required for OIDC
-      contents: read    # needed to checkout repo
+      id-token: write   # Required for GitHub OIDC → AWS
+      contents: read    # Needed to checkout repo
 
     env:
       AWS_REGION: eu-west-2
 
     steps:
+      # ----------------------------
+      # Step 1. Checkout repository
+      # ----------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # ----------------------------
+      # Step 2. Configure AWS creds
+      # ----------------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -29,24 +35,46 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-terraform
 
+      # ----------------------------
+      # Step 3. Setup Terraform CLI
+      # ----------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.5 # pin a version for consistency
+          terraform_version: 1.9.5   # Pin version for consistency
 
+      # ----------------------------
+      # Step 4. Terraform Init
+      # ----------------------------
       - name: Terraform Init
         run: terraform -chdir=infra init -input=false -upgrade
 
+      # ----------------------------
+      # Step 5. Terraform Validate
+      # ----------------------------
       - name: Terraform Validate
         run: terraform -chdir=infra validate
 
+      # ----------------------------
+      # Step 6. Terraform Plan
+      # ----------------------------
       - name: Terraform Plan
         run: |
           terraform -chdir=infra plan \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="redshift_username=admin" \
             -var="redshift_password=${{ secrets.REDSHIFT_PASSWORD }}" \
+            -var="redshift_node_type=ra3.large" \
+            -var="redshift_nodes=2" \
             -input=false -out=tfplan
 
+      # ----------------------------
+      # Step 7. Terraform Apply
+      # ----------------------------
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: |
-          terraform -chdir=infra apply -auto-approve -input=false tfplan
+          terraform -chdir=infra apply \
+            -auto-approve \
+            -input=false tfplan
+
