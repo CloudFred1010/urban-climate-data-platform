@@ -16,10 +16,11 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write  # for AWS OIDC
+      id-token: write  # needed for OIDC → AWS
 
     env:
       AWS_REGION: eu-west-2
+      AWS_ACCOUNT_ID: 235562991700
       ECR_REPO: urban-climate-etl
       IMAGE_TAG: latest
 
@@ -27,18 +28,19 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::235562991700:role/urban-climate-github-role
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-etl
 
       # --- Docker Build & Push ---
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION \
             | docker login --username AWS --password-stdin \
-              235562991700.dkr.ecr.$AWS_REGION.amazonaws.com
+              $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - name: Build Docker image
         run: docker build -t $ECR_REPO:$IMAGE_TAG ./etl
@@ -46,8 +48,8 @@ jobs:
       - name: Tag & Push image to ECR
         run: |
           docker tag $ECR_REPO:$IMAGE_TAG \
-            235562991700.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
-          docker push 235562991700.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+            $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
       # --- Airflow DAG Deployment ---
       - name: Sync Airflow DAGs to S3
@@ -58,4 +60,5 @@ jobs:
       # --- Trigger Staging Pipeline Run ---
       - name: Trigger DAG in Airflow
         run: |
-          airflow dags trigger urban_climate_pipeline --conf '{"env": "staging"}'
+          echo "🔔 Placeholder: Trigger Airflow DAG here"
+          echo "airflow dags trigger urban_climate_pipeline --conf '{\"env\": \"staging\"}'"
