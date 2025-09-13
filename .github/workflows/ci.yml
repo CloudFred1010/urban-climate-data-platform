@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # needed so history is available if needed
+          fetch-depth: 0   # full history for scans if needed
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,18 +38,25 @@ jobs:
       - name: Run Ruff (lint-only)
         run: ruff check .
 
-      # ---------- Security: Gitleaks ----------
-      - name: Run Gitleaks (full repo)
-        run: |
-          # Download latest binary for Linux
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o gitleaks
-          chmod +x gitleaks
-          # Run scan of entire repo, redact secrets in output
-          ./gitleaks detect --source . --no-banner --redact --exit-code 1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ---------- Security: Secret Scanning ----------
+      - name: Run TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: .
+          json: false
 
-      # ---------- Security: Image scanning ----------
+      # ---------- Security: Dependency & IaC Scanning ----------
+      - name: Run Snyk
+        if: env.SNYK_TOKEN != ''
+        uses: snyk/actions/setup@master
+        with:
+          version: latest
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - run: snyk test --all-projects --severity-threshold=high
+        if: env.SNYK_TOKEN != ''
+
+      # ---------- Security: Image Scanning ----------
       - name: Trivy Image Scan
         uses: aquasecurity/trivy-action@0.20.0
         with:
