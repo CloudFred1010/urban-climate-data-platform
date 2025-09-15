@@ -15,6 +15,7 @@ Fixes applied:
 - Safer preview (take instead of show).
 - Corrected handling of weather.main struct (extract main.temp).
 - Logs and error handling improved for Airflow integration.
+- ✅ Final flattening to only 3 columns: region, timestamp, uvi_score.
 """
 
 import sys
@@ -43,7 +44,6 @@ spark = (
         "spark.hadoop.fs.s3a.aws.credentials.provider",
         "com.amazonaws.auth.DefaultAWSCredentialsProviderChain",
     )
-    # Memory + join safety
     .config("spark.sql.autoBroadcastJoinThreshold", "-1")
     .config("spark.sql.adaptive.enabled", "false")
     .config(
@@ -245,10 +245,19 @@ joined = joined.withColumn(
 )
 
 # ------------------------------
+# ✅ Flatten for Redshift
+# ------------------------------
+final_df = joined.selectExpr(
+    "region_code as region",
+    "CAST(dt AS TIMESTAMP) as timestamp",
+    "CAST(uvi AS DOUBLE) as uvi_score",
+)
+
+# ------------------------------
 # Write output
 # ------------------------------
 try:
-    (joined.write.mode("overwrite").partitionBy("year", "region_code").parquet(CURATED))
+    (final_df.write.mode("overwrite").parquet(CURATED))
     print(f"[SUCCESS] ETL Transformation complete. Data written to {CURATED}")
 except Exception as e:
     print(f"[ERROR] Failed to write output to {CURATED}: {e}")

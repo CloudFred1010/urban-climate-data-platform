@@ -80,7 +80,9 @@ default_args = {
 REDSHIFT_CLUSTER = Variable.get("redshift_cluster", default_var="urban-climate-cluster")
 REDSHIFT_DB = Variable.get("redshift_db", default_var="urbanclimate")
 REDSHIFT_USER = Variable.get("redshift_user", default_var="admin")
-REDSHIFT_ROLE = Variable.get("redshift_role")
+REDSHIFT_ROLE = Variable.get(
+    "redshift_role", default_var="arn:aws:iam::123456789012:role/RedshiftCopyRole"
+)
 GLUE_CRAWLER = Variable.get("glue_crawler", default_var="urban-climate-crawler")
 CURATED_S3 = Variable.get(
     "curated_s3",
